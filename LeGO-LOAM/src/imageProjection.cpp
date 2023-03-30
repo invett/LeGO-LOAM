@@ -161,9 +161,17 @@ public:
         // Remove Nan points
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
+
+        // 0. Save plc
+        laserCloudMsg->header.stamp.sec;
+        laserCloudMsg->header.stamp.nsec;
+        //std::string pcdname = "/media/ballardini/hd/velo32/" + std::to_string(laserCloudMsg->header.stamp.sec) + "." + std::to_string(laserCloudMsg->header.stamp.nsec) + ".pcd";
+        //pcl::io::savePCDFileBinaryCompressed(pcdname, *laserCloudIn);
+
     }
     
-    void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
+    void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
+    {
 
         // 1. Convert ros message to pcl point cloud
         copyPointCloud(laserCloudMsg);

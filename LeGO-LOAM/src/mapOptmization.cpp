@@ -702,6 +702,7 @@ public:
             publishGlobalMap();
         }
         // save final point cloud
+        std::cout<<"pcl::io::savePCDFileASCII(fileDirectory+'finalCloud.pcd', *globalMapKeyFramesDS);"<<std::endl;
         pcl::io::savePCDFileASCII(fileDirectory+"finalCloud.pcd", *globalMapKeyFramesDS);
 
         string cornerMapString = "/tmp/cornerMap.pcd";
@@ -724,9 +725,16 @@ public:
         downSizeFilterSurf.setInputCloud(surfaceMapCloud);
         downSizeFilterSurf.filter(*surfaceMapCloudDS);
 
+        std::cout<<"pcl::io::savePCDFileASCII(fileDirectory+'cornerMap.pcd',*cornerMapCloudDS);"<<std::endl;
         pcl::io::savePCDFileASCII(fileDirectory+"cornerMap.pcd", *cornerMapCloudDS);
+        std::cout<<"pcl::io::savePCDFileASCII(fileDirectory+'surfaceMap.pcd', *surfaceMapCloudDS);"<<std::endl;
         pcl::io::savePCDFileASCII(fileDirectory+"surfaceMap.pcd", *surfaceMapCloudDS);
+        std::cout<<"pcl::io::savePCDFileASCII(fileDirectory+'trajectory.pcd', *cloudKeyPoses3D);"<<std::endl;
         pcl::io::savePCDFileASCII(fileDirectory+"trajectory.pcd", *cloudKeyPoses3D);
+
+        std::cout<<"pcl::io::savePCDFileASCII(fileDirectory+'trajectory.pcd', *cloudKeyPoses3D);"<<std::endl;
+        pcl::io::savePCDFileASCII(fileDirectory+"trajectory6DOF.pcd", *cloudKeyPoses6D);
+
     }
 
     void publishGlobalMap(){
@@ -1397,7 +1405,7 @@ public:
         thisPose6D.yaw   = latestEstimate.rotation().roll(); // in camera frame
         thisPose6D.time = timeLaserOdometry;
         cloudKeyPoses6D->push_back(thisPose6D);
-	/**
+        /**
          * save updated transform
          */
         if (cloudKeyPoses3D->points.size() > 1){

@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lego_loam)
 
+SET (CMAKE_BUILD_TYPE RELWITHDEBINFO)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O0")
 
 find_package(catkin REQUIRED COMPONENTS
   tf
@@ -10,8 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
 
-  pcl_ros
-  pcl_conversions
+  #pcl_ros
+  #pcl_conversions
 
   std_msgs
   sensor_msgs
@@ -21,13 +24,13 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(GTSAM REQUIRED QUIET)
-find_package(PCL REQUIRED QUIET)
+find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED QUIET)
 
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS cloud_msgs
-  DEPENDS PCL
+  #DEPENDS PCL
 )
 
 include_directories(
@@ -45,6 +48,11 @@ link_directories(
 	${GTSAM_LIBRARY_DIRS}
 )
 
+message ( "AUGUSTO LOG: "  ${PCL_LIBRARY_DIRS} )
+
+
+add_definitions(${EIGEN_DEFINITIONS} ${PCL_DEFINITIONS})
+
 add_executable(imageProjection src/imageProjection.cpp)
 add_dependencies(imageProjection ${catkin_EXPORTED_TARGETS} cloud_msgs_gencpp)
 target_link_libraries(imageProjection ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
@@ -58,3 +66,6 @@ target_link_libraries(mapOptmization ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Open
 
 add_executable(transformFusion src/transformFusion.cpp)
 target_link_libraries(transformFusion ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_executable(testami src/test.cpp)
+target_link_libraries(testami ${catkin_LIBRARIES})
