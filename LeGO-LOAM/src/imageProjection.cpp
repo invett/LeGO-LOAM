@@ -25,14 +25,9 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// This is an implementation of the algorithm described in the following papers:
-//   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
-//     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
-//   T. Shan and B. Englot. LeGO-LOAM: Lightweight and Ground-Optimized Lidar Odometry and Mapping on Variable Terrain
-//      IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS). October 2018.
 
 #include "utility.h"
+
 
 class ImageProjection{
 private:
@@ -40,7 +35,7 @@ private:
     ros::NodeHandle nh;
 
     ros::Subscriber subLaserCloud;
-    
+
     ros::Publisher pubFullCloud;
     ros::Publisher pubFullInfoCloud;
 
@@ -51,7 +46,6 @@ private:
     ros::Publisher pubOutlierCloud;
 
     pcl::PointCloud<PointType>::Ptr laserCloudIn;
-    pcl::PointCloud<PointXYZIR>::Ptr laserCloudInRing;
 
     pcl::PointCloud<PointType>::Ptr fullCloud; // projected velodyne raw cloud, but saved in the form of 1-D matrix
     pcl::PointCloud<PointType>::Ptr fullInfoCloud; // same as fullCloud, but with intensity - range
@@ -74,12 +68,12 @@ private:
     cloud_msgs::cloud_info segMsg; // info of segmented cloud
     std_msgs::Header cloudHeader;
 
-    std::vector<std::pair<int8_t, int8_t> > neighborIterator; // neighbor iterator for segmentaiton process
+    std::vector<std::pair<uint8_t, uint8_t> > neighborIterator; // neighbor iterator for segmentaiton process
 
     uint16_t *allPushedIndX; // array for tracking points of a segmented object
     uint16_t *allPushedIndY;
 
-    uint16_t *queueIndX; // array for breadth-first search process of segmentation, for speed
+    uint16_t *queueIndX; // array for breadth-first search process of segmentation
     uint16_t *queueIndY;
 
 public:
@@ -109,7 +103,6 @@ public:
     void allocateMemory(){
 
         laserCloudIn.reset(new pcl::PointCloud<PointType>());
-        laserCloudInRing.reset(new pcl::PointCloud<PointXYZIR>());
 
         fullCloud.reset(new pcl::PointCloud<PointType>());
         fullInfoCloud.reset(new pcl::PointCloud<PointType>());
@@ -168,17 +161,17 @@ public:
         // Remove Nan points
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
-        // have "ring" channel in the cloud
-        if (useCloudRing == true){
-            pcl::fromROSMsg(*laserCloudMsg, *laserCloudInRing);
-            if (laserCloudInRing->is_dense == false) {
-                ROS_ERROR("Point cloud is not in dense format, please remove NaN points first!");
-                ros::shutdown();
-            }  
-        }
+
+        // 0. Save plc
+        laserCloudMsg->header.stamp.sec;
+        laserCloudMsg->header.stamp.nsec;
+        //std::string pcdname = "/media/ballardini/hd/velo32/" + std::to_string(laserCloudMsg->header.stamp.sec) + "." + std::to_string(laserCloudMsg->header.stamp.nsec) + ".pcd";
+        //pcl::io::savePCDFileBinaryCompressed(pcdname, *laserCloudIn);
+
     }
-    
-    void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
+
+    void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
+    {
 
         // 1. Convert ros message to pcl point cloud
         copyPointCloud(laserCloudMsg);
@@ -200,7 +193,7 @@ public:
         // start and end orientation of this cloud
         segMsg.startOrientation = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
         segMsg.endOrientation   = -atan2(laserCloudIn->points[laserCloudIn->points.size() - 1].y,
-                                                     laserCloudIn->points[laserCloudIn->points.size() - 1].x) + 2 * M_PI;
+                                                     laserCloudIn->points[laserCloudIn->points.size() - 2].x) + 2 * M_PI;
         if (segMsg.endOrientation - segMsg.startOrientation > 3 * M_PI) {
             segMsg.endOrientation -= 2 * M_PI;
         } else if (segMsg.endOrientation - segMsg.startOrientation < M_PI)
@@ -211,7 +204,7 @@ public:
     void projectPointCloud(){
         // range image projection
         float verticalAngle, horizonAngle, range;
-        size_t rowIdn, columnIdn, index, cloudSize; 
+        size_t rowIdn, columnIdn, index, cloudSize;
         PointType thisPoint;
 
         cloudSize = laserCloudIn->points.size();
@@ -222,13 +215,8 @@ public:
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
             // find the row and column index in the iamge for this point
-            if (useCloudRing == true){
-                rowIdn = laserCloudInRing->points[i].ring;
-            }
-            else{
-                verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
-                rowIdn = (verticalAngle + ang_bottom) / ang_res_y;
-            }
+            verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
+            rowIdn = (verticalAngle + ang_bottom) / ang_res_y;
             if (rowIdn < 0 || rowIdn >= N_SCAN)
                 continue;
 
@@ -242,9 +230,9 @@ public:
                 continue;
 
             range = sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y + thisPoint.z * thisPoint.z);
-            if (range < sensorMinimumRange)
+            if (range < 0.1)
                 continue;
-            
+
             rangeMat.at<float>(rowIdn, columnIdn) = range;
 
             thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
@@ -276,7 +264,7 @@ public:
                     groundMat.at<int8_t>(i,j) = -1;
                     continue;
                 }
-                    
+
                 diffX = fullCloud->points[upperInd].x - fullCloud->points[lowerInd].x;
                 diffY = fullCloud->points[upperInd].y - fullCloud->points[lowerInd].y;
                 diffZ = fullCloud->points[upperInd].z - fullCloud->points[lowerInd].z;
@@ -353,7 +341,7 @@ public:
 
             segMsg.endRingIndex[i] = sizeOfSegCloud-1 - 5;
         }
-        
+
         // extract segmented cloud for visualization
         if (pubSegmentedCloudPure.getNumSubscribers() != 0){
             for (size_t i = 0; i < N_SCAN; ++i){
@@ -370,7 +358,7 @@ public:
     void labelComponents(int row, int col){
         // use std::queue std::vector std::deque will slow the program down greatly
         float d1, d2, alpha, angle;
-        int fromIndX, fromIndY, thisIndX, thisIndY; 
+        int fromIndX, fromIndY, thisIndX, thisIndY;
         bool lineCountFlag[N_SCAN] = {false};
 
         queueIndX[0] = row;
@@ -382,7 +370,7 @@ public:
         allPushedIndX[0] = row;
         allPushedIndY[0] = col;
         int allPushedIndSize = 1;
-        
+
         while(queueSize > 0){
             // Pop point
             fromIndX = queueIndX[queueStartInd];
@@ -408,9 +396,9 @@ public:
                 if (labelMat.at<int>(thisIndX, thisIndY) != 0)
                     continue;
 
-                d1 = std::max(rangeMat.at<float>(fromIndX, fromIndY), 
+                d1 = std::max(rangeMat.at<float>(fromIndX, fromIndY),
                               rangeMat.at<float>(thisIndX, thisIndY));
-                d2 = std::min(rangeMat.at<float>(fromIndX, fromIndY), 
+                d2 = std::min(rangeMat.at<float>(fromIndX, fromIndY),
                               rangeMat.at<float>(thisIndX, thisIndY));
 
                 if ((*iter).first == 0)
@@ -447,7 +435,7 @@ public:
                 if (lineCountFlag[i] == true)
                     ++lineCount;
             if (lineCount >= segmentValidLineNum)
-                feasibleSegment = true;            
+                feasibleSegment = true;
         }
         // segment is valid, mark these points
         if (feasibleSegment == true){
@@ -459,7 +447,7 @@ public:
         }
     }
 
-    
+
     void publishCloud(){
         // 1. Publish Seg Cloud Info
         segMsg.header = cloudHeader;
@@ -513,7 +501,7 @@ public:
 int main(int argc, char** argv){
 
     ros::init(argc, argv, "lego_loam");
-    
+
     ImageProjection IP;
 
     ROS_INFO("\033[1;32m---->\033[0m Image Projection Started.");
